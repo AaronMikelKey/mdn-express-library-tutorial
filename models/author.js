@@ -48,5 +48,19 @@ AuthorSchema
     return DateTime.fromJSDate(this.date_of_death).toLocaleString(DateTime.DATE_MED);
 });
 
+//Virtual for date of birth yyyy-mm-dd
+AuthorSchema
+.virtual('date_of_birth_yyyy_mm_dd')
+.get(function () {
+    return DateTime.fromJSDate(this.date_of_birth).toISODate();
+});
+
+//Virtual for date of death yyyy-mm-dd
+AuthorSchema
+.virtual('date_of_death_yyyy_mm_dd')
+.get(function () {
+    return DateTime.fromJSDate(this.date_of_death).toISODate();
+});
+
 //Export model
 module.exports = mongoose.model('Author', AuthorSchema);

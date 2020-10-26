@@ -134,58 +134,30 @@ exports.author_delete_post = function(req, res, next) {
 };
 
 //Display Author update from GET.
-exports.author_update_get = function(req, res, next) {
+exports.author_update_get = function (req, res, next) {
 
-  // Get author, books and genres for form.
-  async.parallel({
-    author: function(callback) {
-        Author.findById(req.params.id)
-        .populate('first_name')
-        .populate('family_name')
-        .populate('date_of_birth')
-        .populate('date_of_death')
-        .exec(callback);
-    },
-    authors_books: function(callback) {
-        Book.find({ 'author': req.body.authorid }).exec(callback);
-    },
-    }, function(err, results) {
-        if (err) { return next(err); }
-        if (results.author==null) { // No results.
-            var err = new Error('Author not found');
-            err.status = 404;
-            return next(err);
-        }
-        // Success.
-        res.render('author_form', { title: 'Update Author', author: results.author, author_books: results.authors_books });
-    });
+  Author.findById(req.params.id, function (err, results) {
+      if (err) { return next(err); }
+      if (results == null) { // No results.
+          var err = new Error('Author not found');
+          err.status = 404;
+          return next(err);
+      }
+      // Success.
+      res.render('author_form', { title: 'Update Author', author: results });
 
+  });
 };
 
 //Handle Author update on POST
-exports.author_update_post = function(req, res) {
-  res.send('NOT IMPLEMENTED: Author update POST');
-}; /* 
- Copied from book update POST.  need to do update GET first
+exports.author_update_post = 
 [
 
-  // Convert the genre to an array
-  (req, res, next) => {
-    if(!(req.body.genre instanceof Array)){
-      if (typeof req.body.genre==='undefined')
-      req.body.genre=[];
-      else
-      req.body.genre=new Array(req.body.genre);
-    }
-    next();
-  },
-
   //Validate and sanitize fields
-  body('title', 'Title must not be empty').trim().isLength({ min: 1 }).escape(),
-  body('author', 'Author must not be empty.').trim().isLength({ min: 1 }).escape(),
-  body('summary', 'Summary must not be empty.').trim().isLength({ min: 1 }).escape(),
-  body('isbn', 'ISBN must not be empty').trim().isLength({ min: 1 }).escape(),
-  body('genre.*').escape(),
+  body('first_name', 'First name must not be empty').trim().isLength({ min: 1 }).escape(),
+  body('family_name', 'Family name must not be empty.').trim().isLength({ min: 1 }).escape(),
+  body('date_of_birth', '').optional({ checkFalsy: true }).isISO8601().toDate(),
+  body('date_of_death', '').optional({ checkFalsy: true }).isISO8601().toDate(),
 
   //Process request after validation and sanitization
   (req, res, next) => {
@@ -193,48 +165,37 @@ exports.author_update_post = function(req, res) {
     //Extract the validation errors from a request
     const errors = validationResult(req);
 
-    //Create a Book object with trimmed data and old id
-    var book = new Book(
+    //Create an Author object with trimmed data and old id
+    var author = new Author(
       {
-        title: req.body.title,
-        author: req.body.author,
-        summary: req.body.summary,
-        isbn: req.body.isbn,
-        genre: (typeof req.body.genre==='undefined') ? [] :req.body.genre,
+        first_name: req.body.first_name,
+        family_name: req.body.family_name,
+        date_of_birth: req.body.date_of_birth,
+        date_of_death: req.body.date_of_death,
         _id: req.params.id //This is required or a new ID will be assigned.
       });
     if (!errors.isEmpty()) {
       //There are errors, render for again with sanitized values/error messages
 
-      //Get all authors and genres for form
+      //Get all authors form
       async.parallel({
-        authors: function(callback) {
+        author: function(callback) {
           Author.find(callback);
-        },
-        genres: function(callback) {
-          Genre.find(callback);
         },
       }, function(err, results) {
         if (err) { return next(err); }
 
-        //Mark selected genres as checked
-        for (let i=0;i<results.genres.length;i++) {
-          if (book.genre.indexOf(results.genres[i]._id) > -1) {
-            results.genres[i].checked='true';
-          }
-        }
-        res.render('book_form', { title: 'Update Book', authors: results.authors, genres: results.genres, book: book, errors: errors.array() });
+        res.render('author_form', { title: 'Update Author', author: results.author, errors: errors.array() });
       });
       return;
     }
     else {
       //Data from form is valid, update the record
-      Book.findByIdAndUpdate(req.params.id, book, function (err,thebook) {
+      Author.findByIdAndUpdate(req.params.id, author, function (err, newAuthor) {
         if (err) { return next(err); }
-        //Success, redirect to book detail page
-        res.redirect(thebook.url);
+        //Success, redirect to author detail page
+        res.redirect(newAuthor.url);
       });
     }
   }
 ];
-*/
