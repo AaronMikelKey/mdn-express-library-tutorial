@@ -10,7 +10,7 @@ block content
   p #[strong Genre:] 
     each val, index in book.genre
       a(href=val.url) #{val.name}
-      if index < book.genre.length - 1
+      if (index < book.genre.length - 1)
         |, 
   
   div(style='margin-left:20px;margin-top:20px')
