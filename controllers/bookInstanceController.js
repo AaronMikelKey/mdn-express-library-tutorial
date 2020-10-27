@@ -1,6 +1,7 @@
 var BookInstance = require('../models/bookinstance');
 var Book = require('../models/book');
 const { body,validationResult } = require('express-validator');
+const async = require('async');
 
 //display list of bookinstances
 exports.bookinstance_list = function(req, res, next) {
@@ -86,21 +87,100 @@ exports.bookinstance_create_post = [
 ];
 
 //Display bookinstance delete form on GET
-exports.bookinstance_delete_get = function(req, res) {
-    res.send('NOT IMPLEMENTED: bookinstance delete GET');
+exports.bookinstance_delete_get = function(req, res, next) {
+
+  BookInstance.findById(req.params.id)
+    .populate('book')
+    .exec(function (err, bookinstance) {
+        if (err) { return next(err); }
+        if (bookinstance==null) { //No results
+            var err = new Error('Book copy not found');
+            err.status = 404;
+            return next(err);
+        }
+    // Success.
+    res.render('bookinstance_delete', { title: 'Delete Book Instance', book: bookinstance.book.title, bookinstance: bookinstance });
+
+});
 };
 
 //Handle bookinstance delete on POST
-exports.bookinstance_delete_post = function(req, res) {
-    res.send('NOT IMPLEMENTED: bookinstance delete POST');
+exports.bookinstance_delete_post = function(req, res, next) {
+  
+  //Delete object and redirect to the list of bookinstances
+  BookInstance.findByIdAndRemove(req.body.bookinstanceid, function deleteInstance(err) {
+      if (err) { return next(err); }
+      //Success, go to book list
+      res.redirect('/catalog/books')
+  });
 };
 
 //Display bookinstance update from GET.
-exports.bookinstance_update_get = function(req, res) {
-    res.send('NOT IMPLEMENTED: bookinstance update GET');
+exports.bookinstance_update_get = function (req, res, next) {
+
+  BookInstance.findById(req.params.id)
+    .populate('book')
+    .exec(function (err, results) {
+      if (err) { return next(err); }
+      if (results == null) { // No results.
+          var err = new Error('Author not found');
+          err.status = 404;
+          return next(err);
+      }
+      // Success.
+      res.render('bookinstance_form', { title: 'Update Book Instance', bookTitle: results.book.title, bookinstance: results });
+
+  });
 };
 
 //Handle bookinstance update on POST
-exports.bookinstance_update_post = function(req, res) {
-    res.send('NOT IMPLEMENTED: bookinstance update POST');
-};
+exports.bookinstance_update_post = 
+[
+
+  //Validate and sanitize fields
+  body('imprint', 'Imprint must be specified.').trim().isLength({ min: 1 }).escape(),
+  body('due_back', 'Invalid Date').optional({ checkFalsy: true }).isISO8601().toDate().escape(),
+  body('status', 'Invalid Status').escape(),
+  //Process request after validation and sanitization
+  (req, res, next) => {
+
+    //Extract the validation errors from a request
+    const errors = validationResult(req);
+
+    //Create a BookInstance object with trimmed data and old id
+    var bookInstance = new BookInstance(
+      {
+        imprint: req.body.imprint,
+        due_back: req.body.due_back,
+        status: req.body.status,
+        book: req.body.bookTitle, //Required since title shouldn't change? Maybe not required since ID is provided idk
+        _id: req.params.id //This is required or a new ID will be assigned.
+      });
+    if (!errors.isEmpty()) {
+      //There are errors, render for again with sanitized values/error messages
+
+      //Get all book instance form data
+      async.parallel({
+        bookinstance: function(callback) {
+          BookInstance.find(callback);
+        },
+        book: function(callback) {
+          Book.find(callback)
+        },
+      }, function(err, results) {
+        if (err) { return next(err); }
+
+        res.render('bookinstance_form', { title: 'Update Book Instance', bookTitle: results.bookTitle, imprint: results.imprint, due_back: results.due_back, bookinstance: results, errors: errors.array() });
+      });
+      return;
+    }
+    else {
+      //Data from form is valid, update the record
+      BookInstance.findByIdAndUpdate(req.params.id, bookInstance, function (err, newBookInstance) {
+        if (err) { return next(err); }
+        //Success, redirect to BookInstance detail page
+        res.redirect(newBookInstance.url);
+      });
+    }
+  }
+];
